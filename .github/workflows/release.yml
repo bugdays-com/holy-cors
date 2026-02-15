@@ -43,6 +43,12 @@ jobs:
             name: holy-cors-windows-x64
             ext: .exe
 
+          # Windows ARM64
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            name: holy-cors-windows-arm64
+            ext: .exe
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
