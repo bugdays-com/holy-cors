@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn test_default_origins() {
         let config = Config {
-            port: 8080,
+            port: 2345,
             allow_origins: vec![],
             allow_all: false,
             verbose: false,
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn test_custom_origin() {
         let config = Config {
-            port: 8080,
+            port: 2345,
             allow_origins: vec!["http://localhost:3000".to_string()],
             allow_all: false,
             verbose: false,
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn test_allow_all() {
         let config = Config {
-            port: 8080,
+            port: 2345,
             allow_origins: vec![],
             allow_all: true,
             verbose: false,

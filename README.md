@@ -32,7 +32,7 @@ brew install bugdays/tap/holy-cors
 ### Docker
 
 ```bash
-docker run -p 8080:2345 ghcr.io/bugdays-com/holy-cors
+docker run -p 2345:2345 ghcr.io/bugdays-com/holy-cors
 ```
 
 ### Manual Download
@@ -53,7 +53,7 @@ cargo build --release
 ### Basic Usage
 
 ```bash
-# Start the proxy on default port 8080
+# Start the proxy on default port 2345
 holy-cors
 
 # Custom port
@@ -117,7 +117,7 @@ Holy CORS! A fast CORS proxy for developers
 Usage: holy-cors [OPTIONS]
 
 Options:
-  -p, --port <PORT>              Port to listen on [default: 8080]
+  -p, --port <PORT>              Port to listen on [default: 2345]
       --allow-origin <ORIGIN>    Additional origins to allow (can be repeated)
       --allow-all-origins        Allow all origins (development mode)
   -v, --verbose                  Enable verbose logging
@@ -146,7 +146,7 @@ services:
   holy-cors:
     image: ghcr.io/bugdays-com/holy-cors
     ports:
-      - "8080:2345"
+      - "2345:2345"
     environment:
       - HOLY_CORS_ORIGINS=http://localhost:3000
 ```
@@ -155,15 +155,15 @@ services:
 
 ```bash
 # Basic
-docker run -p 8080:2345 ghcr.io/bugdays-com/holy-cors
+docker run -p 2345:2345 ghcr.io/bugdays-com/holy-cors
 
 # With custom origins
-docker run -p 8080:2345 \
+docker run -p 2345:2345 \
   -e HOLY_CORS_ORIGINS=http://localhost:3000,http://localhost:4321 \
   ghcr.io/bugdays-com/holy-cors
 
 # Allow all origins
-docker run -p 8080:2345 \
+docker run -p 2345:2345 \
   -e HOLY_CORS_ALLOW_ALL=true \
   ghcr.io/bugdays-com/holy-cors
 ```
