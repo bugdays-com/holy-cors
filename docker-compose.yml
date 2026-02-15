@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  holy-cors:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - HOLY_CORS_PORT=8080
+      - HOLY_CORS_VERBOSE=false
+      # Add additional allowed origins as needed
+      # - HOLY_CORS_ORIGINS=http://localhost:3000,http://localhost:4321
+      # Enable allow-all for development (be careful!)
+      # - HOLY_CORS_ALLOW_ALL=true
+    restart: unless-stopped
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

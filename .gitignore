@@ -1,0 +1,28 @@
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml
+*~
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Debug
+*.pdb
+
+# Environment
+.env
+.env.local

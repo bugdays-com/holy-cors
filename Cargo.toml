@@ -1,0 +1,47 @@
+[package]
+name = "holy-cors"
+version = "0.1.0"
+edition = "2021"
+authors = ["Bug Days"]
+description = "Holy CORS! A fast CORS proxy for developers"
+repository = "https://github.com/bugdays-com/holy-cors"
+license = "MIT"
+keywords = ["cors", "proxy", "development", "api"]
+categories = ["development-tools", "web-programming"]
+
+[dependencies]
+# Core async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync"] }
+
+# HTTP server + client (low-level, well-maintained)
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+
+# TLS for HTTPS targets
+hyper-rustls = { version = "0.27", features = ["http2", "native-tokio", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+webpki-roots = "0.26"
+
+# WebSocket support
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+
+# CLI parsing
+clap = { version = "4", features = ["derive", "env"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# URL parsing
+url = "2"
+
+# HTTP types
+http = "1"
+bytes = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
