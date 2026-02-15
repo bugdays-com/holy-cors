@@ -32,11 +32,11 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/target/release/holy-cors /usr/local/bin/holy-cors
 
 # Set default port
-ENV HOLY_CORS_PORT=8080
+ENV HOLY_CORS_PORT=2345
 ENV HOLY_CORS_BIND=0.0.0.0
 
 # Expose port
-EXPOSE 8080
+EXPOSE 2345
 
 # Run the binary
 ENTRYPOINT ["holy-cors"]

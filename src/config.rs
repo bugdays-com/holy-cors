@@ -17,7 +17,7 @@ const DEFAULT_ORIGINS: &[&str] = &[
 #[command(about = "Holy CORS! A fast CORS proxy for developers", long_about = None)]
 pub struct Config {
     /// Port to listen on
-    #[arg(short, long, default_value = "8080", env = "HOLY_CORS_PORT")]
+    #[arg(short, long, default_value = "2345", env = "HOLY_CORS_PORT")]
     pub port: u16,
 
     /// Additional origins to allow (can be specified multiple times)

@@ -32,7 +32,7 @@ brew install bugdays/tap/holy-cors
 ### Docker
 
 ```bash
-docker run -p 8080:8080 ghcr.io/bugdays-com/holy-cors
+docker run -p 8080:2345 ghcr.io/bugdays-com/holy-cors
 ```
 
 ### Manual Download
@@ -84,12 +84,12 @@ From your browser or JavaScript code:
 
 ```javascript
 // Proxy a request to any API
-fetch('http://localhost:8080/https://api.github.com/users/octocat')
+fetch('http://localhost:2345/https://api.github.com/users/octocat')
   .then(r => r.json())
   .then(console.log);
 
 // POST request with body
-fetch('http://localhost:8080/https://httpbin.org/post', {
+fetch('http://localhost:2345/https://httpbin.org/post', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ hello: 'world' })
@@ -101,13 +101,13 @@ fetch('http://localhost:8080/https://httpbin.org/post', {
 ### URL Format
 
 ```
-http://localhost:8080/{TARGET_URL}
+http://localhost:2345/{TARGET_URL}
 ```
 
 Examples:
-- `http://localhost:8080/https://api.example.com/data`
-- `http://localhost:8080/https://httpbin.org/get?foo=bar`
-- `http://localhost:8080/http://internal-api.local/endpoint`
+- `http://localhost:2345/https://api.example.com/data`
+- `http://localhost:2345/https://httpbin.org/get?foo=bar`
+- `http://localhost:2345/http://internal-api.local/endpoint`
 
 ## CLI Reference
 
@@ -130,7 +130,7 @@ Options:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `HOLY_CORS_PORT` | Port to listen on | `8080` |
+| `HOLY_CORS_PORT` | Port to listen on | `2345` |
 | `HOLY_CORS_BIND` | Address to bind to | `0.0.0.0` |
 | `HOLY_CORS_ORIGINS` | Comma-separated list of allowed origins | `bugdays.com` |
 | `HOLY_CORS_ALLOW_ALL` | Allow all origins | `false` |
@@ -146,7 +146,7 @@ services:
   holy-cors:
     image: ghcr.io/bugdays-com/holy-cors
     ports:
-      - "8080:8080"
+      - "8080:2345"
     environment:
       - HOLY_CORS_ORIGINS=http://localhost:3000
 ```
@@ -155,15 +155,15 @@ services:
 
 ```bash
 # Basic
-docker run -p 8080:8080 ghcr.io/bugdays-com/holy-cors
+docker run -p 8080:2345 ghcr.io/bugdays-com/holy-cors
 
 # With custom origins
-docker run -p 8080:8080 \
+docker run -p 8080:2345 \
   -e HOLY_CORS_ORIGINS=http://localhost:3000,http://localhost:4321 \
   ghcr.io/bugdays-com/holy-cors
 
 # Allow all origins
-docker run -p 8080:8080 \
+docker run -p 8080:2345 \
   -e HOLY_CORS_ALLOW_ALL=true \
   ghcr.io/bugdays-com/holy-cors
 ```
