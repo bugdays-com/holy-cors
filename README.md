@@ -38,12 +38,6 @@ holy-cors
 
 `brew trust` is a one-time Homebrew 6 requirement for third-party taps. To update an existing installation, run `brew update && brew upgrade holy-cors`.
 
-### Docker
-
-```bash
-docker run --rm -p 127.0.0.1:2345:2345 ghcr.io/bugdays-com/holy-cors
-```
-
 ### Manual download
 
 Download the latest binary from [GitHub Releases](https://github.com/bugdays-com/holy-cors/releases), then run `holy-cors`.
@@ -153,8 +147,6 @@ Environment variables:
 | `HOLY_CORS_ORIGINS` | Comma-separated additional origins | none |
 | `HOLY_CORS_ALLOW_ALL` | Allow every origin | `false` |
 | `HOLY_CORS_VERBOSE` | Verbose logging | `false` |
-
-The container image sets `HOLY_CORS_BIND=0.0.0.0` internally so Docker port publishing works. Bind the published port to `127.0.0.1`, as shown above, to keep it local to the host.
 
 ## Protocol support
 
