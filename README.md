@@ -31,9 +31,12 @@ Holy CORS does not upload your requests to Bug Days. Traffic travels from your b
 ### macOS with Homebrew
 
 ```bash
+brew trust bugdays-com/tap
 brew install bugdays-com/tap/holy-cors
 holy-cors
 ```
+
+`brew trust` is a one-time Homebrew 6 requirement for third-party taps. To update an existing installation, run `brew update && brew upgrade holy-cors`.
 
 ### Docker
 
