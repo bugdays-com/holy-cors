@@ -1,0 +1,8 @@
+.git
+target
+homebrew-tap
+.env
+.env.local
+*.swp
+*.swo
+.DS_Store

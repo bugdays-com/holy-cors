@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.84-alpine AS builder
+FROM rust:1.94-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache musl-dev pkgconfig openssl-dev
@@ -8,22 +8,22 @@ RUN apk add --no-cache musl-dev pkgconfig openssl-dev
 WORKDIR /app
 
 # Copy manifests
-COPY Cargo.toml Cargo.lock* ./
+COPY Cargo.toml Cargo.lock ./
 
 # Create a dummy main.rs to cache dependencies
 RUN mkdir -p src && \
     echo "fn main() {}" > src/main.rs && \
-    cargo build --release && \
+    cargo build --locked --release && \
     rm -rf src
 
 # Copy actual source code
 COPY src ./src
 
 # Build for release
-RUN touch src/main.rs && cargo build --release
+RUN touch src/main.rs && cargo build --locked --release
 
 # Runtime stage
-FROM alpine:3.19
+FROM alpine:3.23
 
 # Install CA certificates for TLS
 RUN apk add --no-cache ca-certificates

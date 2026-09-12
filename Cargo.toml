@@ -1,6 +1,6 @@
 [package]
 name = "holy-cors"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Bug Days"]
 description = "Holy CORS! The local API bridge for Bug Days"
@@ -19,9 +19,8 @@ hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
 
 # TLS for HTTPS targets
-hyper-rustls = { version = "0.27", features = ["http2", "native-tokio", "tls12"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "http2", "native-tokio", "ring", "tls12"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
-webpki-roots = "0.26"
 
 # CLI parsing
 clap = { version = "4", features = ["derive", "env"] }

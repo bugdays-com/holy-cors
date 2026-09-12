@@ -64,11 +64,11 @@ jobs:
 
       - name: Build (cross)
         if: matrix.cross
-        run: cross build --release --target ${{ matrix.target }}
+        run: cross build --locked --release --target ${{ matrix.target }}
 
       - name: Build (native)
         if: ${{ !matrix.cross }}
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --locked --release --target ${{ matrix.target }}
 
       - name: Rename binary (Unix)
         if: runner.os != 'Windows'
