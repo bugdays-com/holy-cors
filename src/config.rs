@@ -9,31 +9,39 @@ const DEFAULT_ORIGINS: &[&str] = &[
     "http://www.bugdays.com",
 ];
 
-/// Holy CORS! A fast CORS proxy for developers
+/// Holy CORS! The local API bridge for Bug Days
 #[derive(Parser, Debug, Clone)]
 #[command(name = "holy-cors")]
 #[command(author = "Bug Days")]
 #[command(version)]
-#[command(about = "Holy CORS! A fast CORS proxy for developers", long_about = None)]
+#[command(about = "Holy CORS! The local API bridge for Bug Days", long_about = None)]
 pub struct Config {
     /// Port to listen on
     #[arg(short, long, default_value = "2345", env = "HOLY_CORS_PORT")]
     pub port: u16,
 
     /// Additional origins to allow (can be specified multiple times)
-    #[arg(long = "allow-origin", env = "HOLY_CORS_ORIGINS", value_delimiter = ',')]
+    #[arg(
+        long = "allow-origin",
+        env = "HOLY_CORS_ORIGINS",
+        value_delimiter = ','
+    )]
     pub allow_origins: Vec<String>,
 
     /// Allow all origins (development mode - be careful!)
-    #[arg(long = "allow-all-origins", env = "HOLY_CORS_ALLOW_ALL", default_value = "false")]
+    #[arg(
+        long = "allow-all-origins",
+        env = "HOLY_CORS_ALLOW_ALL",
+        default_value = "false"
+    )]
     pub allow_all: bool,
 
     /// Enable verbose logging
     #[arg(short, long, env = "HOLY_CORS_VERBOSE", default_value = "false")]
     pub verbose: bool,
 
-    /// Bind address (default: 0.0.0.0)
-    #[arg(long, default_value = "0.0.0.0", env = "HOLY_CORS_BIND")]
+    /// Bind address (defaults to loopback; containers override this to 0.0.0.0)
+    #[arg(long, default_value = "127.0.0.1", env = "HOLY_CORS_BIND")]
     pub bind: String,
 }
 

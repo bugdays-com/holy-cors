@@ -1,24 +1,28 @@
+use bytes::Bytes;
 use http::{header, HeaderMap, HeaderValue, Method, Response, StatusCode};
 use http_body_util::Full;
-use bytes::Bytes;
 
 use crate::config::Config;
 
 /// CORS headers to add to responses
 const CORS_METHODS: &str = "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS";
 const CORS_MAX_AGE: &str = "86400";
+const ALLOW_PRIVATE_NETWORK: &str = "access-control-allow-private-network";
 
 /// Check if the request origin is allowed
-pub fn check_origin(headers: &HeaderMap, config: &Config) -> Result<String, Response<Full<Bytes>>> {
+pub fn check_origin(
+    headers: &HeaderMap,
+    config: &Config,
+) -> Result<String, Box<Response<Full<Bytes>>>> {
     // Get the Origin header
     let origin = match headers.get(header::ORIGIN) {
         Some(origin) => match origin.to_str() {
             Ok(s) => s.to_string(),
             Err(_) => {
-                return Err(error_response(
+                return Err(Box::new(error_response(
                     StatusCode::BAD_REQUEST,
                     "Invalid Origin header",
-                ));
+                )));
             }
         },
         None => {
@@ -30,10 +34,13 @@ pub fn check_origin(headers: &HeaderMap, config: &Config) -> Result<String, Resp
 
     // Check if origin is allowed
     if !config.is_origin_allowed(&origin) {
-        return Err(error_response(
+        return Err(Box::new(error_response(
             StatusCode::FORBIDDEN,
-            &format!("Origin '{}' is not allowed. Use --allow-origin to add it.", origin),
-        ));
+            &format!(
+                "Origin '{}' is not allowed. Use --allow-origin to add it.",
+                origin
+            ),
+        )));
     }
 
     Ok(origin)
@@ -72,7 +79,10 @@ pub fn add_cors_headers(headers: &mut HeaderMap, origin: &str, request_headers: 
 
     // Access-Control-Allow-Headers - echo back requested headers or allow all
     if let Some(requested_headers) = request_headers.get(header::ACCESS_CONTROL_REQUEST_HEADERS) {
-        headers.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, requested_headers.clone());
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_HEADERS,
+            requested_headers.clone(),
+        );
     } else {
         headers.insert(
             header::ACCESS_CONTROL_ALLOW_HEADERS,
@@ -95,6 +105,15 @@ pub fn add_cors_headers(headers: &mut HeaderMap, origin: &str, request_headers: 
     // Access-Control-Allow-Credentials
     headers.insert(
         header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+        HeaderValue::from_static("true"),
+    );
+
+    // Chromium's Private Network Access preflight protects loopback services
+    // from arbitrary public pages. Origin validation above is the trust gate;
+    // this header confirms that an allowed Bug Days origin may reach the local
+    // bridge.
+    headers.insert(
+        http::HeaderName::from_static(ALLOW_PRIVATE_NETWORK),
         HeaderValue::from_static("true"),
     );
 }
@@ -127,4 +146,32 @@ pub fn success_response(message: &str) -> Response<Full<Bytes>> {
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(Full::new(Bytes::from(body)))
         .unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preflight_allows_private_network_for_validated_origin() {
+        let mut request_headers = HeaderMap::new();
+        request_headers.insert(
+            header::ACCESS_CONTROL_REQUEST_HEADERS,
+            HeaderValue::from_static("content-type,x-holy-cors-mode"),
+        );
+
+        let response = handle_preflight("https://bugdays.com", &request_headers);
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        assert_eq!(
+            response.headers().get(ALLOW_PRIVATE_NETWORK).unwrap(),
+            "true"
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                .unwrap(),
+            "https://bugdays.com"
+        );
+    }
 }

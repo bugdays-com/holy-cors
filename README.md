@@ -1,10 +1,12 @@
-# Holy CORS!
+# Holy CORS
 
-> "Holy CORS!" - what every developer mutters when they hit a CORS error.
+**Browser tools, with local superpowers.**
 
-A fast, lightweight CORS proxy for developers. Run it locally to bypass CORS restrictions when testing browser-based API tools.
+Holy CORS is the small local API bridge for [Bug Days](https://bugdays.com). It lets browser-based developer tools reach APIs on your machine or network while keeping control of the connection on your computer.
 
-```
+The name stays. The job is broader: CORS repair, HTTP proxying, response streaming, and native gRPC over HTTP/2—without asking you to write an Envoy configuration.
+
+```text
     _   _       _          ____  ___  ____  ____  _
    | | | | ___ | |_   _   / ___|/ _ \|  _ \/ ___|| |
    | |_| |/ _ \| | | | | | |   | | | | |_) \___ \| |
@@ -13,33 +15,37 @@ A fast, lightweight CORS proxy for developers. Run it locally to bypass CORS res
                   |___/
 ```
 
-## Features
+## What it does
 
-- **Fast** - Built with Rust and Hyper for minimal overhead
-- **Secure by default** - Only allows requests from bugdays.com (configurable)
-- **Protocol support** - HTTP/1.1, HTTP/2, SSE streaming, gRPC-web, SOAP
-- **Easy to use** - Single binary, no configuration required
-- **Cross-platform** - macOS, Linux, and Windows
+- **Native gRPC bridge** — translates binary gRPC-Web requests from the Bug Days client into native gRPC over HTTP/2, including response trailers
+- **HTTP/S bridge** — proxies REST, SOAP, and other HTTP requests while adding browser-readable CORS response headers
+- **Streaming responses** — passes response bodies through as they arrive, including server-streaming gRPC and SSE
+- **Safe local default** — listens on `127.0.0.1` and accepts browser requests only from Bug Days origins unless you opt in to more
+- **No project configuration** — one binary, one command, no sidecar YAML
+- **Cross-platform** — builds for macOS, Linux, and Windows
 
-## Installation
+Holy CORS does not upload your requests to Bug Days. Traffic travels from your browser to the local bridge and then directly to the target you entered.
 
-### macOS (Homebrew)
+## Install and run
+
+### macOS with Homebrew
 
 ```bash
-brew install bugdays/tap/holy-cors
+brew install bugdays-com/tap/holy-cors
+holy-cors
 ```
 
 ### Docker
 
 ```bash
-docker run -p 2345:2345 ghcr.io/bugdays-com/holy-cors
+docker run --rm -p 127.0.0.1:2345:2345 ghcr.io/bugdays-com/holy-cors
 ```
 
-### Manual Download
+### Manual download
 
-Download the latest binary from [GitHub Releases](https://github.com/bugdays-com/holy-cors/releases).
+Download the latest binary from [GitHub Releases](https://github.com/bugdays-com/holy-cors/releases), then run `holy-cors`.
 
-### Build from Source
+### Build from source
 
 ```bash
 git clone https://github.com/bugdays-com/holy-cors.git
@@ -48,156 +54,138 @@ cargo build --release
 ./target/release/holy-cors
 ```
 
-## Usage
+When the bridge is ready, open `http://127.0.0.1:2345/api/v1/capabilities`. Bug Days checks this endpoint automatically and tells you whether the installed version supports the requested feature.
 
-### Basic Usage
+## Use it with the Bug Days gRPC client
 
-```bash
-# Start the proxy on default port 2345
-holy-cors
+1. Start `holy-cors`.
+2. Open [bugdays.com/grpc-client](https://bugdays.com/grpc-client).
+3. Leave the transport set to **Native gRPC (bridge)**.
+4. Enter an HTTP/2 gRPC endpoint such as `http://localhost:50051`.
+5. Load the service's `.proto` files, choose a method, and send.
 
-# Custom port
-holy-cors --port 9000
+The browser sends a correctly encoded protobuf message in a binary gRPC-Web frame. Holy CORS forwards the same data frame using `application/grpc+proto` over HTTP/2, then converts native trailing metadata into the final gRPC-Web trailer frame. Unary and server-streaming methods are supported. Client-streaming and bidirectional streaming still require a native gRPC client because browser request streaming is not portable.
 
-# Enable verbose logging
-holy-cors -v
+The bridge mode is explicit and versioned:
+
+```text
+X-Holy-Cors-Mode: grpc-native
+Content-Type: application/grpc-web+proto
 ```
 
-### Allowing Additional Origins
+Existing gRPC-Web endpoints can still use normal proxy pass-through without that mode header.
 
-By default, Holy CORS only accepts requests from `bugdays.com`. To allow additional origins:
+## General HTTP usage
 
-```bash
-# Allow localhost development
-holy-cors --allow-origin http://localhost:3000
+The target URL follows the bridge URL:
 
-# Allow multiple origins
-holy-cors --allow-origin http://localhost:3000 --allow-origin http://localhost:4321
-
-# Allow ALL origins (development only - be careful!)
-holy-cors --allow-all-origins
-```
-
-### Making Requests
-
-From your browser or JavaScript code:
-
-```javascript
-// Proxy a request to any API
-fetch('http://localhost:2345/https://api.github.com/users/octocat')
-  .then(r => r.json())
-  .then(console.log);
-
-// POST request with body
-fetch('http://localhost:2345/https://httpbin.org/post', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ hello: 'world' })
-})
-  .then(r => r.json())
-  .then(console.log);
-```
-
-### URL Format
-
-```
-http://localhost:2345/{TARGET_URL}
+```text
+http://127.0.0.1:2345/{TARGET_URL}
 ```
 
 Examples:
-- `http://localhost:2345/https://api.example.com/data`
-- `http://localhost:2345/https://httpbin.org/get?foo=bar`
-- `http://localhost:2345/http://internal-api.local/endpoint`
 
-## CLI Reference
+```javascript
+const user = await fetch(
+  'http://127.0.0.1:2345/https://api.github.com/users/octocat'
+).then(response => response.json());
 
+const response = await fetch(
+  'http://127.0.0.1:2345/https://httpbin.org/post',
+  {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ hello: 'world' })
+  }
+);
 ```
-Holy CORS! A fast CORS proxy for developers
+
+Query strings are preserved:
+
+```text
+http://127.0.0.1:2345/https://api.example.com/data?limit=25
+http://127.0.0.1:2345/http://internal-api.local/health
+```
+
+## Allow another web app
+
+Bug Days production and local development origins are included by default. Add other trusted origins explicitly:
+
+```bash
+holy-cors --allow-origin http://localhost:3000
+holy-cors --allow-origin https://tools.example.com
+```
+
+Multiple values can be supplied by repeating the option. For an isolated development environment, you can opt into any origin:
+
+```bash
+holy-cors --allow-all-origins
+```
+
+Do not use `--allow-all-origins` around untrusted pages. A local browser bridge can reach services that public websites normally cannot.
+
+## CLI reference
+
+```text
+Holy CORS! The local API bridge for Bug Days
 
 Usage: holy-cors [OPTIONS]
 
 Options:
   -p, --port <PORT>              Port to listen on [default: 2345]
-      --allow-origin <ORIGIN>    Additional origins to allow (can be repeated)
-      --allow-all-origins        Allow all origins (development mode)
-  -v, --verbose                  Enable verbose logging
-      --bind <ADDRESS>           Bind address [default: 0.0.0.0]
+      --allow-origin <ORIGIN>    Additional allowed origin; may be repeated
+      --allow-all-origins        Allow every browser origin
+  -v, --verbose                  Enable verbose request logging
+      --bind <ADDRESS>           Bind address [default: 127.0.0.1]
   -h, --help                     Print help
   -V, --version                  Print version
 ```
 
-## Environment Variables
+Environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `HOLY_CORS_PORT` | Port to listen on | `2345` |
-| `HOLY_CORS_BIND` | Address to bind to | `0.0.0.0` |
-| `HOLY_CORS_ORIGINS` | Comma-separated list of allowed origins | `bugdays.com` |
-| `HOLY_CORS_ALLOW_ALL` | Allow all origins | `false` |
-| `HOLY_CORS_VERBOSE` | Enable verbose logging | `false` |
+| Variable | Purpose | Native default |
+|---|---|---|
+| `HOLY_CORS_PORT` | Listening port | `2345` |
+| `HOLY_CORS_BIND` | Listening address | `127.0.0.1` |
+| `HOLY_CORS_ORIGINS` | Comma-separated additional origins | none |
+| `HOLY_CORS_ALLOW_ALL` | Allow every origin | `false` |
+| `HOLY_CORS_VERBOSE` | Verbose logging | `false` |
 
-## Docker
+The container image sets `HOLY_CORS_BIND=0.0.0.0` internally so Docker port publishing works. Bind the published port to `127.0.0.1`, as shown above, to keep it local to the host.
 
-### Using Docker Compose
+## Protocol support
 
-```yaml
-version: '3.8'
-services:
-  holy-cors:
-    image: ghcr.io/bugdays-com/holy-cors
-    ports:
-      - "2345:2345"
-    environment:
-      - HOLY_CORS_ORIGINS=http://localhost:3000
-```
+| Protocol or behavior | Support |
+|---|---|
+| HTTP/1.1 and HTTPS proxying | Supported |
+| HTTP/2 upstream connections | Supported |
+| Native gRPC unary calls | Supported through bridge mode |
+| Native gRPC server streaming | Supported through bridge mode |
+| Existing binary gRPC-Web | Supported as pass-through |
+| Client and bidirectional gRPC streaming | Not available from browser Fetch |
+| SSE response streaming | Supported |
+| SOAP over HTTP/S | Supported |
+| WebSocket tunneling | Not yet supported |
 
-### Using Docker Run
+## Security model
 
-```bash
-# Basic
-docker run -p 2345:2345 ghcr.io/bugdays-com/holy-cors
+Holy CORS is intentionally a local developer utility, not a shared production gateway.
 
-# With custom origins
-docker run -p 2345:2345 \
-  -e HOLY_CORS_ORIGINS=http://localhost:3000,http://localhost:4321 \
-  ghcr.io/bugdays-com/holy-cors
+- It binds to loopback by default.
+- Browser requests are checked against an origin allowlist.
+- Private Network Access preflights are approved only after that origin check.
+- Only `http` and `https` target schemes are accepted.
+- It stores no request data and sends no telemetry.
+- It provides no authentication or rate limiting of its own.
 
-# Allow all origins
-docker run -p 2345:2345 \
-  -e HOLY_CORS_ALLOW_ALL=true \
-  ghcr.io/bugdays-com/holy-cors
-```
-
-## Protocol Support
-
-| Protocol | Support |
-|----------|---------|
-| HTTP/1.1 | Full |
-| HTTP/2 | Full |
-| HTTPS | Full |
-| SSE (Server-Sent Events) | Full (streaming) |
-| gRPC-Web | Full |
-| SOAP | Full |
-| WebSocket | Experimental |
-
-## Security
-
-Holy CORS is designed to run **locally on your development machine**. It:
-
-- Only allows requests from configured origins (bugdays.com by default)
-- Validates URL schemes (only http/https allowed)
-- Does not implement rate limiting (it's your machine, your rules)
-
-**Warning**: Using `--allow-all-origins` disables origin checking. Only use this in development environments.
+Anyone able to execute local programs as your user can already make direct network requests, so requests without a browser `Origin` header remain available to command-line tools. If you bind Holy CORS to a non-loopback address, protect that interface yourself.
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request.
+Issues and pull requests are welcome. Please include a reproducible target or protocol fixture when reporting proxy behavior.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
 
----
-
-Built with love by [Bug Days](https://bugdays.com)
+Built by [Bug Days](https://bugdays.com).

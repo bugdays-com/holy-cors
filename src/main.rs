@@ -52,10 +52,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Print banner
     println!("{}", BANNER);
-    println!("  A fast CORS proxy for developers\n");
+    println!("  Browser tools, with local superpowers.\n");
 
     // Print configuration
-    info!("Starting Holy CORS proxy...");
+    info!("Starting the Bug Days local API bridge...");
     info!("Listening on http://{}", config.socket_addr());
 
     if config.allow_all {
@@ -69,7 +69,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!();
     info!("Usage: http://localhost:{}/{{TARGET_URL}}", config.port);
-    info!("Example: http://localhost:{}/https://api.github.com/users/octocat", config.port);
+    info!(
+        "Example: http://localhost:{}/https://api.github.com/users/octocat",
+        config.port
+    );
+    info!(
+        "Capabilities: http://localhost:{}/api/v1/capabilities",
+        config.port
+    );
     println!();
 
     // Bind to address
