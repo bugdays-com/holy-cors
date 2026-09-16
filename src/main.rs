@@ -1,6 +1,8 @@
 mod config;
 mod cors;
+mod dns;
 mod proxy;
+mod tls_inspector;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -77,6 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         "Capabilities: http://localhost:{}/api/v1/capabilities",
         config.port
     );
+    info!("Includes HTTP/S, native gRPC, system DNS, and TLS certificate inspection");
     println!();
 
     // Bind to address

@@ -1,17 +1,17 @@
 [package]
 name = "holy-cors"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["Bug Days"]
 description = "Holy CORS! The local API bridge for Bug Days"
 repository = "https://github.com/bugdays-com/holy-cors"
 license = "MIT"
-keywords = ["cors", "proxy", "grpc", "development", "api"]
+keywords = ["cors", "proxy", "grpc", "dns", "tls"]
 categories = ["development-tools", "web-programming"]
 
 [dependencies]
 # Core async runtime
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
 
 # HTTP server + client (low-level, well-maintained)
 hyper = { version = "1", features = ["full"] }
@@ -21,6 +21,16 @@ http-body-util = "0.1"
 # TLS for HTTPS targets
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "http2", "native-tokio", "ring", "tls12"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "ring", "tls12"] }
+rustls-native-certs = "0.8"
+
+# Local DNS diagnostics
+hickory-resolver = "0.26"
+
+# Structured local bridge APIs
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
 
 # CLI parsing
 clap = { version = "4", features = ["derive", "env"] }

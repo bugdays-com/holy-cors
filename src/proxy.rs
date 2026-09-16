@@ -1,10 +1,12 @@
 use bytes::Bytes;
-use http::{header, HeaderMap, Request, Response, StatusCode, Uri};
+use http::{header, HeaderMap, Method, Request, Response, StatusCode, Uri};
 use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::body::{Body, Frame, Incoming, SizeHint};
 use hyper_rustls::HttpsConnectorBuilder;
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -16,8 +18,13 @@ use crate::cors::{
     add_cors_headers, check_origin, error_response, handle_preflight, is_preflight,
     success_response,
 };
+use crate::dns::{self, DnsQueryRequest};
+use crate::tls_inspector::{self, TlsInspectRequest};
 
 const CAPABILITIES_PATH: &str = "/api/v1/capabilities";
+const DNS_QUERY_PATH: &str = "/api/v1/dns/query";
+const TLS_INSPECT_PATH: &str = "/api/v1/tls/inspect";
+const MAX_API_BODY_BYTES: usize = 32 * 1024;
 const BRIDGE_MODE_HEADER: &str = "x-holy-cors-mode";
 const NATIVE_GRPC_MODE: &str = "grpc-native";
 
@@ -74,6 +81,14 @@ pub async fn handle_request(
         return Ok(
             capabilities_response(&origin, &headers).map(|b| b.map_err(|_| unreachable!()).boxed())
         );
+    }
+
+    if path == DNS_QUERY_PATH {
+        return Ok(handle_dns_query(req, &origin, &headers).await);
+    }
+
+    if path == TLS_INSPECT_PATH {
+        return Ok(handle_tls_inspect(req, &origin, &headers).await);
     }
 
     if path == "/" || path.is_empty() {
@@ -140,7 +155,7 @@ pub async fn handle_request(
 
 fn capabilities_response(origin: &str, request_headers: &HeaderMap) -> Response<Full<Bytes>> {
     let body = format!(
-        r#"{{"name":"Holy CORS","product":"Bug Days Local Bridge","version":"{}","protocolVersion":1,"capabilities":{{"httpProxy":true,"grpcWebProxy":true,"grpcNativeBridge":true,"unaryGrpc":true,"serverStreamingGrpc":true,"clientStreamingGrpc":false,"bidirectionalStreamingGrpc":false,"webSocketTunneling":false}}}}"#,
+        r#"{{"name":"Holy CORS","product":"Bug Days Local Bridge","version":"{}","protocolVersion":2,"capabilities":{{"httpProxy":true,"grpcWebProxy":true,"grpcNativeBridge":true,"unaryGrpc":true,"serverStreamingGrpc":true,"clientStreamingGrpc":false,"bidirectionalStreamingGrpc":false,"webSocketTunneling":false,"dnsLookup":true,"reverseDns":true,"tlsInspection":true,"rawTls":true}}}}"#,
         env!("CARGO_PKG_VERSION")
     );
 
@@ -152,6 +167,127 @@ fn capabilities_response(origin: &str, request_headers: &HeaderMap) -> Response<
         .expect("valid capabilities response");
     add_cors_headers(response.headers_mut(), origin, request_headers);
     response
+}
+
+async fn handle_dns_query(
+    req: Request<Incoming>,
+    origin: &str,
+    request_headers: &HeaderMap,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+    if req.method() != Method::POST {
+        return api_error(
+            StatusCode::METHOD_NOT_ALLOWED,
+            "Use POST for DNS queries.",
+            origin,
+            request_headers,
+        );
+    }
+    let request = match parse_json_body::<DnsQueryRequest>(req).await {
+        Ok(value) => value,
+        Err((status, message)) => return api_error(status, &message, origin, request_headers),
+    };
+    match dns::query(request).await {
+        Ok(response) => api_json(StatusCode::OK, &response, origin, request_headers),
+        Err(message) => api_error(StatusCode::BAD_REQUEST, &message, origin, request_headers),
+    }
+}
+
+async fn handle_tls_inspect(
+    req: Request<Incoming>,
+    origin: &str,
+    request_headers: &HeaderMap,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+    if req.method() != Method::POST {
+        return api_error(
+            StatusCode::METHOD_NOT_ALLOWED,
+            "Use POST for TLS inspection.",
+            origin,
+            request_headers,
+        );
+    }
+    let request = match parse_json_body::<TlsInspectRequest>(req).await {
+        Ok(value) => value,
+        Err((status, message)) => return api_error(status, &message, origin, request_headers),
+    };
+    match tls_inspector::inspect(request).await {
+        Ok(response) => api_json(StatusCode::OK, &response, origin, request_headers),
+        Err(message) => api_error(StatusCode::BAD_GATEWAY, &message, origin, request_headers),
+    }
+}
+
+async fn parse_json_body<T: DeserializeOwned>(
+    req: Request<Incoming>,
+) -> Result<T, (StatusCode, String)> {
+    if req
+        .body()
+        .size_hint()
+        .upper()
+        .is_some_and(|size| size as usize > MAX_API_BODY_BYTES)
+    {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "Request body is too large.".to_string(),
+        ));
+    }
+    let bytes = req
+        .into_body()
+        .collect()
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "Could not read the request body.".to_string(),
+            )
+        })?
+        .to_bytes();
+    if bytes.len() > MAX_API_BODY_BYTES {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "Request body is too large.".to_string(),
+        ));
+    }
+    serde_json::from_slice(&bytes).map_err(|error| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("Invalid JSON request: {error}"),
+        )
+    })
+}
+
+fn api_error(
+    status: StatusCode,
+    message: &str,
+    origin: &str,
+    request_headers: &HeaderMap,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+    #[derive(Serialize)]
+    struct ErrorBody<'a> {
+        error: &'a str,
+    }
+    api_json(
+        status,
+        &ErrorBody { error: message },
+        origin,
+        request_headers,
+    )
+}
+
+fn api_json<T: Serialize>(
+    status: StatusCode,
+    payload: &T,
+    origin: &str,
+    request_headers: &HeaderMap,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+    let body = serde_json::to_vec(payload)
+        .unwrap_or_else(|_| b"{\"error\":\"Could not encode response.\"}".to_vec());
+    let mut response = Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json; charset=utf-8")
+        .header(header::CACHE_CONTROL, "no-store")
+        .body(Full::new(Bytes::from(body)))
+        .expect("valid API response");
+    add_cors_headers(response.headers_mut(), origin, request_headers);
+    response.map(|body| body.map_err(|_| unreachable!()).boxed())
 }
 
 fn is_native_grpc_request(headers: &HeaderMap) -> bool {
