@@ -1,6 +1,6 @@
 [package]
 name = "holy-cors"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2021"
 authors = ["Bug Days"]
 description = "Holy CORS! The local API bridge for Bug Days"

@@ -104,19 +104,26 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, '-') }}
 
-  docker:
-    name: Build and Push Docker Image
+  docker-build:
+    name: Build Docker ${{ matrix.arch }}
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            os: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            os: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -128,24 +135,44 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=holy-cors-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=holy-cors-${{ matrix.arch }}
+
+  docker:
+    name: Publish multiarch Docker image
+    needs: docker-build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assemble and publish manifest
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY}"
+          version="${GITHUB_REF_NAME#v}"
+          tags=(--tag "$image:$version")
+          if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            tags+=(--tag "$image:${BASH_REMATCH[1]}.${BASH_REMATCH[2]}")
+            tags+=(--tag "$image:${BASH_REMATCH[1]}")
+            tags+=(--tag "$image:latest")
+          fi
+          docker buildx imagetools create "${tags[@]}" \
+            "$image:${GITHUB_REF_NAME}-amd64" \
+            "$image:${GITHUB_REF_NAME}-arm64"
+          docker buildx imagetools inspect "$image:$version"
