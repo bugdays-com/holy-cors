@@ -19,12 +19,14 @@ use crate::cors::{
     success_response,
 };
 use crate::dns::{self, DnsQueryRequest};
+use crate::kafka;
 use crate::tls_inspector::{self, TlsInspectRequest};
 
 const CAPABILITIES_PATH: &str = "/api/v1/capabilities";
 const DNS_QUERY_PATH: &str = "/api/v1/dns/query";
 const TLS_INSPECT_PATH: &str = "/api/v1/tls/inspect";
 const MAX_API_BODY_BYTES: usize = 32 * 1024;
+const MAX_KAFKA_BODY_BYTES: usize = 24 * 1024 * 1024;
 const BRIDGE_MODE_HEADER: &str = "x-holy-cors-mode";
 const NATIVE_GRPC_MODE: &str = "grpc-native";
 
@@ -91,6 +93,10 @@ pub async fn handle_request(
         return Ok(handle_tls_inspect(req, &origin, &headers).await);
     }
 
+    if path.starts_with("/api/v1/kafka/") {
+        return Ok(handle_kafka(req, path.to_string(), &origin, &headers).await);
+    }
+
     if path == "/" || path.is_empty() {
         return Ok(success_response(
             "Holy CORS is running — the Bug Days local API bridge is ready. Usage: /{TARGET_URL}",
@@ -155,7 +161,7 @@ pub async fn handle_request(
 
 fn capabilities_response(origin: &str, request_headers: &HeaderMap) -> Response<Full<Bytes>> {
     let body = format!(
-        r#"{{"name":"Holy CORS","product":"Bug Days Local Bridge","version":"{}","protocolVersion":2,"capabilities":{{"httpProxy":true,"grpcWebProxy":true,"grpcNativeBridge":true,"unaryGrpc":true,"serverStreamingGrpc":true,"clientStreamingGrpc":false,"bidirectionalStreamingGrpc":false,"webSocketTunneling":false,"dnsLookup":true,"reverseDns":true,"tlsInspection":true,"rawTls":true}}}}"#,
+        r#"{{"name":"Holy CORS","product":"Bug Days Local Bridge","version":"{}","protocolVersion":2,"capabilities":{{"httpProxy":true,"grpcWebProxy":true,"grpcNativeBridge":true,"unaryGrpc":true,"serverStreamingGrpc":true,"clientStreamingGrpc":false,"bidirectionalStreamingGrpc":false,"webSocketTunneling":false,"dnsLookup":true,"reverseDns":true,"tlsInspection":true,"rawTls":true,"kafkaApiVersion":1}}}}"#,
         env!("CARGO_PKG_VERSION")
     );
 
@@ -218,11 +224,18 @@ async fn handle_tls_inspect(
 async fn parse_json_body<T: DeserializeOwned>(
     req: Request<Incoming>,
 ) -> Result<T, (StatusCode, String)> {
+    parse_json_body_limit(req, MAX_API_BODY_BYTES).await
+}
+
+async fn parse_json_body_limit<T: DeserializeOwned>(
+    req: Request<Incoming>,
+    max_bytes: usize,
+) -> Result<T, (StatusCode, String)> {
     if req
         .body()
         .size_hint()
         .upper()
-        .is_some_and(|size| size as usize > MAX_API_BODY_BYTES)
+        .is_some_and(|size| size as usize > max_bytes)
     {
         return Err((
             StatusCode::PAYLOAD_TOO_LARGE,
@@ -240,7 +253,7 @@ async fn parse_json_body<T: DeserializeOwned>(
             )
         })?
         .to_bytes();
-    if bytes.len() > MAX_API_BODY_BYTES {
+    if bytes.len() > max_bytes {
         return Err((
             StatusCode::PAYLOAD_TOO_LARGE,
             "Request body is too large.".to_string(),
@@ -252,6 +265,30 @@ async fn parse_json_body<T: DeserializeOwned>(
             format!("Invalid JSON request: {error}"),
         )
     })
+}
+
+async fn handle_kafka(
+    req: Request<Incoming>,
+    path: String,
+    origin: &str,
+    request_headers: &HeaderMap,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+    if req.method() != Method::POST {
+        return api_error(
+            StatusCode::METHOD_NOT_ALLOWED,
+            "Use POST for Kafka requests.",
+            origin,
+            request_headers,
+        );
+    }
+    let body = match parse_json_body_limit::<serde_json::Value>(req, MAX_KAFKA_BODY_BYTES).await {
+        Ok(body) => body,
+        Err((status, message)) => return api_error(status, &message, origin, request_headers),
+    };
+    match kafka::execute(&path, body, origin).await {
+        Ok(value) => api_json(StatusCode::OK, &value, origin, request_headers),
+        Err(error) => api_error(error.status, &error.message, origin, request_headers),
+    }
 }
 
 fn api_error(

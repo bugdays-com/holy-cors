@@ -1,12 +1,12 @@
 [package]
 name = "holy-cors"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["Bug Days"]
 description = "Holy CORS! The local API bridge for Bug Days"
 repository = "https://github.com/bugdays-com/holy-cors"
 license = "MIT"
-keywords = ["cors", "proxy", "grpc", "dns", "tls"]
+keywords = ["cors", "proxy", "grpc", "kafka", "tls"]
 categories = ["development-tools", "web-programming"]
 
 [dependencies]
@@ -31,6 +31,10 @@ hickory-resolver = "0.26"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
+# OpenSSL enables TLS and SCRAM; librdkafka handles PLAIN itself. The `sasl`
+# feature additionally links GSSAPI/Kerberos, which is outside this client.
+rdkafka = { version = "0.39", features = ["ssl-vendored"] }
+rand = "0.9"
 
 # CLI parsing
 clap = { version = "4", features = ["derive", "env"] }

@@ -1,6 +1,7 @@
 mod config;
 mod cors;
 mod dns;
+mod kafka;
 mod proxy;
 mod tls_inspector;
 
@@ -79,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         "Capabilities: http://localhost:{}/api/v1/capabilities",
         config.port
     );
-    info!("Includes HTTP/S, native gRPC, system DNS, and TLS certificate inspection");
+    info!("Includes HTTP/S, native gRPC, Kafka, system DNS, and TLS certificate inspection");
     println!();
 
     // Bind to address

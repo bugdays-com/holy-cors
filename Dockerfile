@@ -2,7 +2,7 @@
 FROM rust:1.94-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev
+RUN apk add --no-cache build-base pkgconfig perl
 
 # Create app directory
 WORKDIR /app
@@ -26,7 +26,7 @@ RUN touch src/main.rs && cargo build --locked --release
 FROM alpine:3.23
 
 # Install CA certificates for TLS
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates openssl zlib
 
 # Copy the binary
 COPY --from=builder /app/target/release/holy-cors /usr/local/bin/holy-cors

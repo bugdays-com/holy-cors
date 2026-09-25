@@ -19,6 +19,7 @@ Holy CORS is the small local network bridge for [Bug Days](https://bugdays.com).
 - **HTTP/S bridge** — proxies REST, SOAP, and other HTTP requests while adding browser-readable CORS response headers
 - **DNS diagnostics** — queries the resolver configured for the bridge environment, including private, VPN, split-horizon, and PTR reverse DNS records
 - **TLS certificate inspection** — connects to a hostname or IP on any direct-TLS port and returns the complete server-presented certificate chain plus negotiated TLS details
+- **Kafka access** — browse records, inspect consumer groups and lag, preview offset resets, and replay messages using Kafka's native protocol
 - **Streaming responses** — passes response bodies through as they arrive, including server-streaming gRPC and SSE
 - **Safe local default** — listens on `127.0.0.1` and accepts browser requests only from Bug Days origins unless you opt in to more
 - **No project configuration** — one binary, one command, no sidecar YAML
@@ -31,12 +32,11 @@ Holy CORS does not upload your requests to Bug Days. Traffic travels from your b
 ### macOS with Homebrew
 
 ```bash
-brew trust bugdays-com/tap
 brew install bugdays-com/tap/holy-cors
 holy-cors
 ```
 
-`brew trust` is a one-time Homebrew 6 requirement for third-party taps. To update an existing installation, run `brew update && brew upgrade holy-cors`.
+The fully qualified install trusts only the Holy CORS formula. To update an existing installation, run `brew update && brew upgrade holy-cors`.
 
 ### Manual download
 
@@ -50,6 +50,8 @@ cd holy-cors
 cargo build --release
 ./target/release/holy-cors
 ```
+
+Source builds need a C compiler, `make`, and Perl for the bundled Kafka TLS library. Kafka support does not require a separate proxy or broker-side plugin.
 
 When the bridge is ready, open `http://127.0.0.1:2345/api/v1/capabilities`. Bug Days checks this endpoint automatically and tells you whether the installed version supports the requested feature.
 
@@ -90,6 +92,16 @@ Example TLS request:
 ```
 
 `host` selects the TCP destination. `serverName` selects SNI and the identity used by the device trust check, which is useful when a service is reached by IP. STARTTLS-style protocols are not negotiated by this endpoint; it expects TLS to begin immediately after connecting.
+
+## Use it with the Kafka client
+
+Open [Kafka Message Browser](https://bugdays.com/kafka-client/) or [Kafka Consumer Diagnostics](https://bugdays.com/kafka-diagnostics/) after starting Holy CORS. The browser sends Kafka requests to the bridge on your device. The bridge speaks Kafka's native protocol to your bootstrap brokers and follows the broker addresses returned in cluster metadata.
+
+The Kafka API lives under `/api/v1/kafka/`. A `POST /connect` body supplies bootstrap servers and optional TLS, SASL PLAIN, or SASL SCRAM credentials. It returns a random session token that stays in the browser tab; credentials go to the local bridge and target broker, never Bug Days servers. Supported actions are `metadata`, `topic`, `browse`, `groups`, `group`, `reset-preview`, `reset-apply`, `replay`, and `disconnect`. Connections expire after 30 minutes without use. Offset reset previews expire after 5 minutes and are checked again immediately before applying.
+
+Message keys, values, and header values use Base64 in JSON; `null` remains distinct from an empty byte string. Offsets are decimal strings to preserve 64-bit precision in JavaScript. Browse reads manually assigned partitions without joining or committing a group. Replay batches contain at most 200 messages and return broker-acknowledged destination offsets. Keep the browser tab open for a large replay.
+
+Only Kafka bootstrap hosts you configure are contacted. A Kafka connection may still fail if brokers advertise addresses your device cannot reach; connect from the same network or VPN as the target application.
 
 ## Use it with the Bug Days gRPC client
 
