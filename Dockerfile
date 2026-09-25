@@ -2,7 +2,7 @@
 FROM rust:1.94-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache build-base cmake curl-dev pkgconfig perl
+RUN apk add --no-cache build-base cmake curl-dev pkgconfig perl zlib-static
 
 # Create app directory
 WORKDIR /app
