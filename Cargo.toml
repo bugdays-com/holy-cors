@@ -1,6 +1,6 @@
 [package]
 name = "holy-cors"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 authors = ["Bug Days"]
 description = "Holy CORS! The local API bridge for Bug Days"
@@ -33,7 +33,7 @@ serde_json = "1"
 base64 = "0.22"
 # OpenSSL enables TLS and SCRAM; librdkafka handles PLAIN itself. The `sasl`
 # feature additionally links GSSAPI/Kerberos, which is outside this client.
-rdkafka = { version = "0.39", features = ["ssl-vendored"] }
+rdkafka = { version = "0.39", features = ["ssl-vendored", "cmake-build"] }
 rand = "0.9"
 
 # CLI parsing
