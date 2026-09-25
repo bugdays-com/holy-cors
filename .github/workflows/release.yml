@@ -57,6 +57,10 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install Linux build headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+
       - name: Build
         run: cargo build --locked --release --target ${{ matrix.target }}
 

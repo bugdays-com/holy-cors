@@ -51,7 +51,7 @@ cargo build --release
 ./target/release/holy-cors
 ```
 
-Source builds need a C compiler, CMake, and Perl for the bundled Kafka TLS library. Kafka support does not require a separate proxy or broker-side plugin.
+Source builds need a C compiler, CMake, and Perl for the bundled Kafka TLS library. Linux builds also need libcurl development headers (for example, `libcurl4-openssl-dev` on Ubuntu). Kafka support does not require a separate proxy or broker-side plugin.
 
 When the bridge is ready, open `http://127.0.0.1:2345/api/v1/capabilities`. Bug Days checks this endpoint automatically and tells you whether the installed version supports the requested feature.
 
